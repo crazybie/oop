@@ -7,68 +7,68 @@ import (
 
 type Base struct {
 	oop.Rtti
-	B int
+	iVal int
 }
 
 type Sub struct {
 	Base
-	S string
+	sVal string
 }
 
 type SubSub struct {
 	Sub
-	F float32
+	fVal float32
 }
 
 func TestOOP(t *testing.T) {
-	s := &Sub{
-		Base: Base{B: 1},
-		S:    "s",
+	sub := &Sub{
+		Base: Base{iVal: 1},
+		sVal: "sub",
 	}
-	oop.InitRtti(s)
+	oop.InitRtti(sub)
 
-	b, ok := oop.Cast[Base](s)
-	if !ok || b.B != 1 {
+	base, ok := oop.Cast[Base](sub)
+	if !ok || base.iVal != 1 {
 		t.Errorf("up Cast failed")
 	}
 
-	s.B = 2
-	if b.B != 2 {
-		t.Errorf("b.B!=2")
+	sub.iVal = 2
+	if base.iVal != 2 {
+		t.Errorf("base.iVal!=2")
 	}
 
-	s, ok = oop.Cast[Sub](b)
-	if !ok || s.S != "s" || s.B != 2 {
+	sub, ok = oop.Cast[Sub](base)
+	if !ok || sub.sVal != "sub" || sub.iVal != 2 {
 		t.Errorf("down Cast failed")
 	}
 
-	ss := &SubSub{
-		Sub: *s,
-		F:   22,
+	subSub := &SubSub{
+		Sub:  *sub,
+		fVal: 22,
 	}
-	oop.InitRtti(ss)
+	oop.InitRtti(subSub)
 
-	b, ok = oop.Cast[Base](ss)
-	if !ok || b.B != 2 {
+	base, ok = oop.Cast[Base](subSub)
+	if !ok || base.iVal != 2 {
 		t.Errorf("up Cast failed")
 	}
-	s, ok = oop.Cast[Sub](b)
-	if !ok || s.S != "s" || s.B != 2 {
+	sub, ok = oop.Cast[Sub](base)
+	if !ok || sub.sVal != "sub" || sub.iVal != 2 {
 		t.Errorf("down Cast failed")
 	}
 
-	ss, ok = oop.Cast[SubSub](b)
-	if !ok || ss.F != 22 || ss.S != "s" || ss.B != 2 {
+	subSub, ok = oop.Cast[SubSub](base)
+	if !ok || subSub.fVal != 22 || subSub.sVal != "sub" || subSub.iVal != 2 {
 		t.Errorf("down Cast failed")
 	}
 
-	s, ok = oop.Cast[Sub](b)
-	if !ok || s.S != "s" {
+	sub, ok = oop.Cast[Sub](base)
+	if !ok || sub.sVal != "sub" {
 		t.Errorf("down Cast failed")
 	}
 
-	ss, ok = oop.Cast[SubSub](s)
-	if !ok || ss.F != 22 || ss.S != "s" || ss.B != 2 {
+	subSub, ok = oop.Cast[SubSub](sub)
+	if !ok || subSub.fVal != 22 || subSub.sVal != "sub" || subSub.iVal != 2 {
 		t.Errorf("down Cast failed")
 	}
 }
