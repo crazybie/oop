@@ -11,9 +11,17 @@ type Base struct {
 	iVal int
 }
 
+func (s *Base) VirtualMethod(v string) string {
+	panic("not implemented")
+}
+
 type Sub struct {
 	Base
 	sVal string
+}
+
+func (s *Sub) VirtualMethod(v string) string {
+	return v
 }
 
 type SubSub struct {
@@ -32,7 +40,7 @@ func TestSmoke(t *testing.T) {
 
 	// up casting
 
-	base := Cast[Base](sub)
+	base := To[Base](sub)
 	if base == nil || base.iVal != 1 {
 		t.Errorf("up Cast failed")
 	}
@@ -44,7 +52,7 @@ func TestSmoke(t *testing.T) {
 
 	// down casting
 
-	sub = Cast[Sub](base)
+	sub = To[Sub](base)
 	if sub == nil || sub.sVal != "sub" || sub.iVal != 2 {
 		t.Errorf("down Cast failed")
 	}
@@ -58,27 +66,27 @@ func TestSmoke(t *testing.T) {
 	Init(subSub)
 
 	// up casting
-	base = Cast[Base](subSub)
+	base = To[Base](subSub)
 	if base == nil || base.iVal != 2 {
 		t.Errorf("up Cast failed")
 	}
 	// down casting 1
-	sub = Cast[Sub](base)
+	sub = To[Sub](base)
 	if sub == nil || sub.sVal != "sub" || sub.iVal != 2 {
 		t.Errorf("down Cast failed")
 	}
 	// down casting 2
-	subSub = Cast[SubSub](base)
+	subSub = To[SubSub](base)
 	if subSub == nil || subSub.fVal != 22 || subSub.sVal != "sub" || subSub.iVal != 2 {
 		t.Errorf("down Cast failed")
 	}
 	// down casting 3
-	sub = Cast[Sub](base)
+	sub = To[Sub](base)
 	if sub == nil || sub.sVal != "sub" {
 		t.Errorf("down Cast failed")
 	}
 	// down casting 4
-	subSub = Cast[SubSub](sub)
+	subSub = To[SubSub](sub)
 	if subSub == nil || subSub.fVal != 22 || subSub.sVal != "sub" || subSub.iVal != 2 {
 		t.Errorf("down Cast failed")
 	}
@@ -103,8 +111,27 @@ func TestMissingInit(t *testing.T) {
 		sVal: "sub",
 	}
 
-	base := Cast[Base](sub)
+	base := To[Base](sub)
 	if base == nil || base.iVal != 1 {
 		t.Errorf("up Cast failed")
+	}
+}
+
+func TestCall(t *testing.T) {
+	sub := &Sub{
+		Base: Base{iVal: 1},
+		sVal: "sub",
+	}
+	Init(sub)
+
+	base := To[Base](sub)
+	out := CallArg1Ret1(base, base.VirtualMethod, "1")
+	if out != "1" {
+		t.Fail()
+	}
+
+	out = CallArg1Ret1(base, base.VirtualMethod, "2")
+	if out != "2" {
+		t.Fail()
 	}
 }
