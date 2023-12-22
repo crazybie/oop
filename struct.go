@@ -17,18 +17,11 @@ import (
 
 // region global cache
 
-var typeCache = struct {
+var typeCastingCache = struct {
 	sync.RWMutex
-	casting map[reflect.Type]map[reflect.Type]bool
+	types map[reflect.Type]map[reflect.Type]bool
 }{
-	casting: make(map[reflect.Type]map[reflect.Type]bool),
-}
-
-var fnCache = struct {
-	sync.RWMutex
-	fns map[string]reflect.Method
-}{
-	fns: map[string]reflect.Method{},
+	types: make(map[reflect.Type]map[reflect.Type]bool),
 }
 
 // endregion
@@ -57,46 +50,78 @@ func Init[T iStruct](imp T) T {
 	return imp
 }
 
+type TypeInfo struct {
+	sync.RWMutex
+	realType reflect.Type
+	fns      map[string]reflect.Method
+}
+
+var typeInfoCache = struct {
+	sync.RWMutex
+	types map[reflect.Type]*TypeInfo
+}{
+	types: map[reflect.Type]*TypeInfo{},
+}
+
 // Struct is the root type of the inheritance tree.
 type Struct struct {
-	realType reflect.Type // for down casting
+	typeInfo *TypeInfo
 }
 
 func (b *Struct) getType() reflect.Type {
-	return b.realType
+	if b.typeInfo == nil {
+		panic(&ErrUnInit{reflect.TypeOf(b)})
+	}
+	return b.typeInfo.realType
 }
 
 func (b *Struct) setType(t reflect.Type) {
-	b.realType = t
+	typeInfoCache.RLock()
+	info, ok := typeInfoCache.types[t]
+	typeInfoCache.RUnlock()
+
+	if ok {
+		b.typeInfo = info
+	} else {
+		info = &TypeInfo{
+			realType: t,
+			fns:      map[string]reflect.Method{},
+		}
+		typeInfoCache.Lock()
+		typeInfoCache.types[t] = info
+		typeInfoCache.Unlock()
+	}
+	b.typeInfo = info
 }
 
 // Call can invoke the methods of the concrete type.
 func (b *Struct) Call(f any, args ...any) []reflect.Value {
+	typeInfo := b.typeInfo
 	fv := reflect.ValueOf(f)
 	fullName := runtime.FuncForPC(fv.Pointer()).Name()
 
-	fnCache.RLock()
-	m, ok := fnCache.fns[fullName]
-	if !ok {
-		fnCache.RUnlock()
+	typeInfo.RLock()
+	m, ok := typeInfo.fns[fullName]
+	typeInfo.RUnlock()
 
+	if !ok {
 		tokens := strings.Split(fullName, ".")
 		name := strings.Replace(tokens[len(tokens)-1], "-fm", "", 1)
-		m, ok = b.realType.MethodByName(name)
+		m, ok = typeInfo.realType.MethodByName(name)
 		if !ok {
-			m, ok = reflect.PtrTo(b.realType).MethodByName(name)
+			m, ok = reflect.PtrTo(typeInfo.realType).MethodByName(name)
 			if !ok {
-				panic(fmt.Errorf("method not found %s in type %s", name, b.realType.String()))
+				panic(fmt.Errorf("method not found %s in type %s", name, typeInfo.realType.String()))
 			}
 		}
 
-		fnCache.Lock()
-		fnCache.fns[fullName] = m
-		fnCache.Unlock()
+		typeInfo.Lock()
+		typeInfo.fns[fullName] = m
+		typeInfo.Unlock()
 	}
 
 	vArgs := make([]reflect.Value, 0, len(args))
-	vArgs = append(vArgs, reflect.NewAt(b.realType, unsafe.Pointer(b)))
+	vArgs = append(vArgs, reflect.NewAt(typeInfo.realType, unsafe.Pointer(b)))
 	for _, i := range args {
 		vArgs = append(vArgs, reflect.ValueOf(i))
 	}
@@ -108,18 +133,14 @@ func To[Dst any](s iStruct) (d *Dst) {
 	dstTp := reflect.TypeOf(d).Elem()
 	realTp := s.getType()
 
-	if realTp == nil {
-		panic(&ErrUnInit{reflect.TypeOf(s)})
-	}
-
 	if dstTp != realTp {
 
-		// check typeCache
+		// check typeCastingCache
 
-		typeCache.RLock()
-		if v, ok1 := typeCache.casting[realTp]; ok1 {
+		typeCastingCache.RLock()
+		if v, ok1 := typeCastingCache.types[realTp]; ok1 {
 			if v2, ok2 := v[dstTp]; ok2 && v2 {
-				typeCache.RUnlock()
+				typeCastingCache.RUnlock()
 				if v2 {
 					goto success
 				} else {
@@ -127,7 +148,7 @@ func To[Dst any](s iStruct) (d *Dst) {
 				}
 			}
 		}
-		typeCache.RUnlock()
+		typeCastingCache.RUnlock()
 
 		// traverse the inheritance tree
 
@@ -137,14 +158,14 @@ func To[Dst any](s iStruct) (d *Dst) {
 		}
 		ok := f == dstTp
 
-		// save to typeCache
+		// save to typeCastingCache
 
-		typeCache.Lock()
-		if typeCache.casting[realTp] == nil {
-			typeCache.casting[realTp] = make(map[reflect.Type]bool)
+		typeCastingCache.Lock()
+		if typeCastingCache.types[realTp] == nil {
+			typeCastingCache.types[realTp] = make(map[reflect.Type]bool)
 		}
-		typeCache.casting[realTp][dstTp] = ok
-		typeCache.Unlock()
+		typeCastingCache.types[realTp][dstTp] = ok
+		typeCastingCache.Unlock()
 		if !ok {
 			return nil
 		}
