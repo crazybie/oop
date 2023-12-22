@@ -41,7 +41,7 @@ func (er ErrUnInit) Error() string {
 type iStruct interface {
 	getType() reflect.Type
 	setType(reflect.Type)
-	Call(f any, args ...any) []reflect.Value
+	call(f any, args ...any) []reflect.Value
 }
 
 // Init the real type of obj for down casting.
@@ -95,7 +95,7 @@ func (b *Struct) setType(t reflect.Type) {
 }
 
 // Call can invoke the methods of the concrete type.
-func (b *Struct) Call(f any, args ...any) []reflect.Value {
+func (b *Struct) call(f any, args ...any) []reflect.Value {
 	typeInfo := b.typeInfo
 	fv := reflect.ValueOf(f)
 	fullName := runtime.FuncForPC(fv.Pointer()).Name()
@@ -183,63 +183,63 @@ func UnsafeCast[To any](s iStruct) (d *To) {
 // region type safe call wrappers
 
 func CallArg0Ret0(obj iStruct, f func()) {
-	obj.Call(f)
+	obj.call(f)
 	return
 }
 func CallArg0Ret1[R0 any](obj iStruct, f func() R0) R0 {
-	out := obj.Call(f)
+	out := obj.call(f)
 	return out[0].Interface().(R0)
 }
 func CallArg0Ret2[R0, R1 any](obj iStruct, f func() (R0, R1)) (R0, R1) {
-	out := obj.Call(f)
+	out := obj.call(f)
 	return out[0].Interface().(R0), out[1].Interface().(R1)
 }
 func CallArg1Ret0[A0 any](obj iStruct, f func(A0), a0 A0) {
-	obj.Call(f, a0)
+	obj.call(f, a0)
 	return
 }
 func CallArg1Ret1[R0, A0 any](obj iStruct, f func(A0) R0, a0 A0) R0 {
-	out := obj.Call(f, a0)
+	out := obj.call(f, a0)
 	return out[0].Interface().(R0)
 }
 func CallArg1Ret2[R0, R1, A0 any](obj iStruct, f func(A0) (R0, R1), a0 A0) (R0, R1) {
-	out := obj.Call(f, a0)
+	out := obj.call(f, a0)
 	return out[0].Interface().(R0), out[1].Interface().(R1)
 }
 func CallArg2Ret0[A0, A1 any](obj iStruct, f func(A0, A1), a0 A0, a1 A1) {
-	obj.Call(f, a0, a1)
+	obj.call(f, a0, a1)
 	return
 }
 func CallArg2Ret1[R0, A0, A1 any](obj iStruct, f func(A0, A1) R0, a0 A0, a1 A1) R0 {
-	out := obj.Call(f, a0, a1)
+	out := obj.call(f, a0, a1)
 	return out[0].Interface().(R0)
 }
 func CallArg2Ret2[R0, R1, A0, A1 any](obj iStruct, f func(A0, A1) (R0, R1), a0 A0, a1 A1) (R0, R1) {
-	out := obj.Call(f, a0, a1)
+	out := obj.call(f, a0, a1)
 	return out[0].Interface().(R0), out[1].Interface().(R1)
 }
 func CallArg3Ret0[A0, A1, A2 any](obj iStruct, f func(A0, A1, A2), a0 A0, a1 A1, a2 A2) {
-	obj.Call(f, a0, a1, a2)
+	obj.call(f, a0, a1, a2)
 	return
 }
 func CallArg3Ret1[R0, A0, A1, A2 any](obj iStruct, f func(A0, A1, A2) R0, a0 A0, a1 A1, a2 A2) R0 {
-	out := obj.Call(f, a0, a1, a2)
+	out := obj.call(f, a0, a1, a2)
 	return out[0].Interface().(R0)
 }
 func CallArg3Ret2[R0, R1, A0, A1, A2 any](obj iStruct, f func(A0, A1, A2) (R0, R1), a0 A0, a1 A1, a2 A2) (R0, R1) {
-	out := obj.Call(f, a0, a1, a2)
+	out := obj.call(f, a0, a1, a2)
 	return out[0].Interface().(R0), out[1].Interface().(R1)
 }
 func CallArg4Ret0[A0, A1, A2, A3 any](obj iStruct, f func(A0, A1, A2, A3), a0 A0, a1 A1, a2 A2, a3 A3) {
-	obj.Call(f, a0, a1, a2, a3)
+	obj.call(f, a0, a1, a2, a3)
 	return
 }
 func CallArg4Ret1[R0, A0, A1, A2, A3 any](obj iStruct, f func(A0, A1, A2, A3) R0, a0 A0, a1 A1, a2 A2, a3 A3) R0 {
-	out := obj.Call(f, a0, a1, a2, a3)
+	out := obj.call(f, a0, a1, a2, a3)
 	return out[0].Interface().(R0)
 }
 func CallArg4Ret2[R0, R1, A0, A1, A2, A3 any](obj iStruct, f func(A0, A1, A2, A3) (R0, R1), a0 A0, a1 A1, a2 A2, a3 A3) (R0, R1) {
-	out := obj.Call(f, a0, a1, a2, a3)
+	out := obj.call(f, a0, a1, a2, a3)
 	return out[0].Interface().(R0), out[1].Interface().(R1)
 }
 
