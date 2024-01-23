@@ -13,16 +13,16 @@ and one field must have one pair of matching get&set methods in the correspondin
 which cause a lot of boring interface code, even we just need a simple up-casting.
 
 ### Cons
-1. overload checking is performed at runtime.
-   - some IDE(e.g. Goland) can show the function shadowing, makes jumping between base and subclass possible.
-   - the shadowing icon can be used to verify the overloading correction.
+1. function overwriting checking is performed at runtime.
+   - some IDEs(e.g. Goland) can show the function shadowing, makes jumping between base and subclass possible.
+   - the shadowing icon can be used to verify the overwriting correction.
 2. not performant as interface.
    - for invoking: method name lookup cost, arguments boxing overhead.
    - for casting: cost to inheritance tree walking.
 
 ## Usage
-1. embed inherit.Struct as value and make it the first member in the base class.
-2. call inherit.Init on the subclass instance.
+1. embed `inherit.Struct` as value and make it the first member in the base class.
+2. call `inherit.Init` on the subclass instance.
 
 #### Then you can
 1. call `inherit.To[DestType]` to cast from base to subclass.
