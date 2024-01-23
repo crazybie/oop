@@ -15,16 +15,15 @@ import (
 	"unsafe"
 )
 
-// region global cache
+/*
+Usage:
+	1. embed inherit.Struct as value and the first member in the base class.
+	2. call inherit.Init on the subclass instance.
 
-var typeCastingCache = struct {
-	sync.RWMutex
-	types map[reflect.Type]map[reflect.Type]bool
-}{
-	types: make(map[reflect.Type]map[reflect.Type]bool),
-}
-
-// endregion
+Then you can:
+	1. call Cast to cast upper/down.
+	2. use inherit.InvokeX_X to call methods of subclass from base.
+*/
 
 // region Error
 
@@ -107,12 +106,9 @@ func (b *Struct) call(f any, args ...any) []reflect.Value {
 	if !ok {
 		tokens := strings.Split(fullName, ".")
 		name := strings.Replace(tokens[len(tokens)-1], "-fm", "", 1)
-		m, ok = typeInfo.realType.MethodByName(name)
+		m, ok = reflect.PtrTo(typeInfo.realType).MethodByName(name)
 		if !ok {
-			m, ok = reflect.PtrTo(typeInfo.realType).MethodByName(name)
-			if !ok {
-				panic(fmt.Errorf("method not found %s in type %s", name, typeInfo.realType.String()))
-			}
+			panic(fmt.Errorf("method not found %s in type %s", name, typeInfo.realType.String()))
 		}
 
 		typeInfo.Lock()
@@ -134,44 +130,16 @@ func To[Dst any](s iStruct) (d *Dst) {
 	realTp := s.getType()
 
 	if dstTp != realTp {
-
-		// check typeCastingCache
-
-		typeCastingCache.RLock()
-		if v, ok1 := typeCastingCache.types[realTp]; ok1 {
-			if v2, ok2 := v[dstTp]; ok2 && v2 {
-				typeCastingCache.RUnlock()
-				if v2 {
-					goto success
-				} else {
-					return nil
-				}
-			}
-		}
-		typeCastingCache.RUnlock()
-
 		// traverse the inheritance tree
-
 		f := realTp.Field(0).Type
 		for f != dstTp && f.Kind() == reflect.Struct {
 			f = f.Field(0).Type
 		}
-		ok := f == dstTp
-
-		// save to typeCastingCache
-
-		typeCastingCache.Lock()
-		if typeCastingCache.types[realTp] == nil {
-			typeCastingCache.types[realTp] = make(map[reflect.Type]bool)
-		}
-		typeCastingCache.types[realTp][dstTp] = ok
-		typeCastingCache.Unlock()
-		if !ok {
+		if f != dstTp {
 			return nil
 		}
 	}
 
-success:
 	return UnsafeCast[Dst](s)
 }
 
@@ -180,67 +148,253 @@ func UnsafeCast[To any](s iStruct) (d *To) {
 	return
 }
 
+func checkedCast[T any](src reflect.Value) (r T) {
+	if v := src.Interface(); v != nil {
+		return v.(T)
+	}
+	return
+}
+
 // region type safe call wrappers
 
-func CallArg0Ret0(obj iStruct, f func()) {
+// nolint:lll
+func Invoke0_0(f func(), obj iStruct) {
 	obj.call(f)
 	return
 }
-func CallArg0Ret1[R0 any](obj iStruct, f func() R0) R0 {
-	out := obj.call(f)
-	return out[0].Interface().(R0)
+
+// nolint:lll
+func Invoke0_1[R0 any](f func() R0, obj iStruct) R0 {
+	r := obj.call(f)
+	return checkedCast[R0](r[0])
 }
-func CallArg0Ret2[R0, R1 any](obj iStruct, f func() (R0, R1)) (R0, R1) {
-	out := obj.call(f)
-	return out[0].Interface().(R0), out[1].Interface().(R1)
+
+// nolint:lll
+func Invoke0_2[R0, R1 any](f func() (R0, R1), obj iStruct) (R0, R1) {
+	r := obj.call(f)
+	return checkedCast[R0](r[0]), checkedCast[R1](r[1])
 }
-func CallArg1Ret0[A0 any](obj iStruct, f func(A0), a0 A0) {
+
+// nolint:lll
+func Invoke0_3[R0, R1, R2 any](f func() (R0, R1, R2), obj iStruct) (R0, R1, R2) {
+	r := obj.call(f)
+	return checkedCast[R0](r[0]), checkedCast[R1](r[1]), checkedCast[R2](r[2])
+}
+
+// nolint:lll
+func Invoke0_4[R0, R1, R2, R3 any](f func() (R0, R1, R2, R3), obj iStruct) (R0, R1, R2, R3) {
+	r := obj.call(f)
+	return checkedCast[R0](r[0]), checkedCast[R1](r[1]), checkedCast[R2](r[2]), checkedCast[R3](r[3])
+}
+
+// nolint:lll
+func Invoke1_0[A0 any](f func(A0), obj iStruct, a0 A0) {
 	obj.call(f, a0)
 	return
 }
-func CallArg1Ret1[R0, A0 any](obj iStruct, f func(A0) R0, a0 A0) R0 {
-	out := obj.call(f, a0)
-	return out[0].Interface().(R0)
+
+// nolint:lll
+func Invoke1_1[R0, A0 any](f func(A0) R0, obj iStruct, a0 A0) R0 {
+	r := obj.call(f, a0)
+	return checkedCast[R0](r[0])
 }
-func CallArg1Ret2[R0, R1, A0 any](obj iStruct, f func(A0) (R0, R1), a0 A0) (R0, R1) {
-	out := obj.call(f, a0)
-	return out[0].Interface().(R0), out[1].Interface().(R1)
+
+// nolint:lll
+func Invoke1_2[R0, R1, A0 any](f func(A0) (R0, R1), obj iStruct, a0 A0) (R0, R1) {
+	r := obj.call(f, a0)
+	return checkedCast[R0](r[0]), checkedCast[R1](r[1])
 }
-func CallArg2Ret0[A0, A1 any](obj iStruct, f func(A0, A1), a0 A0, a1 A1) {
+
+// nolint:lll
+func Invoke1_3[R0, R1, R2, A0 any](f func(A0) (R0, R1, R2), obj iStruct, a0 A0) (R0, R1, R2) {
+	r := obj.call(f, a0)
+	return checkedCast[R0](r[0]), checkedCast[R1](r[1]), checkedCast[R2](r[2])
+}
+
+// nolint:lll
+func Invoke1_4[R0, R1, R2, R3, A0 any](f func(A0) (R0, R1, R2, R3), obj iStruct, a0 A0) (R0, R1, R2, R3) {
+	r := obj.call(f, a0)
+	return checkedCast[R0](r[0]), checkedCast[R1](r[1]), checkedCast[R2](r[2]), checkedCast[R3](r[3])
+}
+
+// nolint:lll
+func Invoke2_0[A0, A1 any](f func(A0, A1), obj iStruct, a0 A0, a1 A1) {
 	obj.call(f, a0, a1)
 	return
 }
-func CallArg2Ret1[R0, A0, A1 any](obj iStruct, f func(A0, A1) R0, a0 A0, a1 A1) R0 {
-	out := obj.call(f, a0, a1)
-	return out[0].Interface().(R0)
+
+// nolint:lll
+func Invoke2_1[R0, A0, A1 any](f func(A0, A1) R0, obj iStruct, a0 A0, a1 A1) R0 {
+	r := obj.call(f, a0, a1)
+	return checkedCast[R0](r[0])
 }
-func CallArg2Ret2[R0, R1, A0, A1 any](obj iStruct, f func(A0, A1) (R0, R1), a0 A0, a1 A1) (R0, R1) {
-	out := obj.call(f, a0, a1)
-	return out[0].Interface().(R0), out[1].Interface().(R1)
+
+// nolint:lll
+func Invoke2_2[R0, R1, A0, A1 any](f func(A0, A1) (R0, R1), obj iStruct, a0 A0, a1 A1) (R0, R1) {
+	r := obj.call(f, a0, a1)
+	return checkedCast[R0](r[0]), checkedCast[R1](r[1])
 }
-func CallArg3Ret0[A0, A1, A2 any](obj iStruct, f func(A0, A1, A2), a0 A0, a1 A1, a2 A2) {
+
+// nolint:lll
+func Invoke2_3[R0, R1, R2, A0, A1 any](f func(A0, A1) (R0, R1, R2), obj iStruct, a0 A0, a1 A1) (R0, R1, R2) {
+	r := obj.call(f, a0, a1)
+	return checkedCast[R0](r[0]), checkedCast[R1](r[1]), checkedCast[R2](r[2])
+}
+
+// nolint:lll
+func Invoke2_4[R0, R1, R2, R3, A0, A1 any](f func(A0, A1) (R0, R1, R2, R3), obj iStruct, a0 A0, a1 A1) (R0, R1, R2, R3) {
+	r := obj.call(f, a0, a1)
+	return checkedCast[R0](r[0]), checkedCast[R1](r[1]), checkedCast[R2](r[2]), checkedCast[R3](r[3])
+}
+
+// nolint:lll
+func Invoke3_0[A0, A1, A2 any](f func(A0, A1, A2), obj iStruct, a0 A0, a1 A1, a2 A2) {
 	obj.call(f, a0, a1, a2)
 	return
 }
-func CallArg3Ret1[R0, A0, A1, A2 any](obj iStruct, f func(A0, A1, A2) R0, a0 A0, a1 A1, a2 A2) R0 {
-	out := obj.call(f, a0, a1, a2)
-	return out[0].Interface().(R0)
+
+// nolint:lll
+func Invoke3_1[R0, A0, A1, A2 any](f func(A0, A1, A2) R0, obj iStruct, a0 A0, a1 A1, a2 A2) R0 {
+	r := obj.call(f, a0, a1, a2)
+	return checkedCast[R0](r[0])
 }
-func CallArg3Ret2[R0, R1, A0, A1, A2 any](obj iStruct, f func(A0, A1, A2) (R0, R1), a0 A0, a1 A1, a2 A2) (R0, R1) {
-	out := obj.call(f, a0, a1, a2)
-	return out[0].Interface().(R0), out[1].Interface().(R1)
+
+// nolint:lll
+func Invoke3_2[R0, R1, A0, A1, A2 any](f func(A0, A1, A2) (R0, R1), obj iStruct, a0 A0, a1 A1, a2 A2) (R0, R1) {
+	r := obj.call(f, a0, a1, a2)
+	return checkedCast[R0](r[0]), checkedCast[R1](r[1])
 }
-func CallArg4Ret0[A0, A1, A2, A3 any](obj iStruct, f func(A0, A1, A2, A3), a0 A0, a1 A1, a2 A2, a3 A3) {
+
+// nolint:lll
+func Invoke3_3[R0, R1, R2, A0, A1, A2 any](f func(A0, A1, A2) (R0, R1, R2), obj iStruct, a0 A0, a1 A1, a2 A2) (R0, R1, R2) {
+	r := obj.call(f, a0, a1, a2)
+	return checkedCast[R0](r[0]), checkedCast[R1](r[1]), checkedCast[R2](r[2])
+}
+
+// nolint:lll
+func Invoke3_4[R0, R1, R2, R3, A0, A1, A2 any](f func(A0, A1, A2) (R0, R1, R2, R3), obj iStruct, a0 A0, a1 A1, a2 A2) (R0, R1, R2, R3) {
+	r := obj.call(f, a0, a1, a2)
+	return checkedCast[R0](r[0]), checkedCast[R1](r[1]), checkedCast[R2](r[2]), checkedCast[R3](r[3])
+}
+
+// nolint:lll
+func Invoke4_0[A0, A1, A2, A3 any](f func(A0, A1, A2, A3), obj iStruct, a0 A0, a1 A1, a2 A2, a3 A3) {
 	obj.call(f, a0, a1, a2, a3)
 	return
 }
-func CallArg4Ret1[R0, A0, A1, A2, A3 any](obj iStruct, f func(A0, A1, A2, A3) R0, a0 A0, a1 A1, a2 A2, a3 A3) R0 {
-	out := obj.call(f, a0, a1, a2, a3)
-	return out[0].Interface().(R0)
+
+// nolint:lll
+func Invoke4_1[R0, A0, A1, A2, A3 any](f func(A0, A1, A2, A3) R0, obj iStruct, a0 A0, a1 A1, a2 A2, a3 A3) R0 {
+	r := obj.call(f, a0, a1, a2, a3)
+	return checkedCast[R0](r[0])
 }
-func CallArg4Ret2[R0, R1, A0, A1, A2, A3 any](obj iStruct, f func(A0, A1, A2, A3) (R0, R1), a0 A0, a1 A1, a2 A2, a3 A3) (R0, R1) {
-	out := obj.call(f, a0, a1, a2, a3)
-	return out[0].Interface().(R0), out[1].Interface().(R1)
+
+// nolint:lll
+func Invoke4_2[R0, R1, A0, A1, A2, A3 any](f func(A0, A1, A2, A3) (R0, R1), obj iStruct, a0 A0, a1 A1, a2 A2, a3 A3) (R0, R1) {
+	r := obj.call(f, a0, a1, a2, a3)
+	return checkedCast[R0](r[0]), checkedCast[R1](r[1])
+}
+
+// nolint:lll
+func Invoke4_3[R0, R1, R2, A0, A1, A2, A3 any](f func(A0, A1, A2, A3) (R0, R1, R2), obj iStruct, a0 A0, a1 A1, a2 A2, a3 A3) (R0, R1, R2) {
+	r := obj.call(f, a0, a1, a2, a3)
+	return checkedCast[R0](r[0]), checkedCast[R1](r[1]), checkedCast[R2](r[2])
+}
+
+// nolint:lll
+func Invoke4_4[R0, R1, R2, R3, A0, A1, A2, A3 any](f func(A0, A1, A2, A3) (R0, R1, R2, R3), obj iStruct, a0 A0, a1 A1, a2 A2, a3 A3) (R0, R1, R2, R3) {
+	r := obj.call(f, a0, a1, a2, a3)
+	return checkedCast[R0](r[0]), checkedCast[R1](r[1]), checkedCast[R2](r[2]), checkedCast[R3](r[3])
+}
+
+// nolint:lll
+func Invoke5_0[A0, A1, A2, A3, A4 any](f func(A0, A1, A2, A3, A4), obj iStruct, a0 A0, a1 A1, a2 A2, a3 A3, a4 A4) {
+	obj.call(f, a0, a1, a2, a3, a4)
+	return
+}
+
+// nolint:lll
+func Invoke5_1[R0, A0, A1, A2, A3, A4 any](f func(A0, A1, A2, A3, A4) R0, obj iStruct, a0 A0, a1 A1, a2 A2, a3 A3, a4 A4) R0 {
+	r := obj.call(f, a0, a1, a2, a3, a4)
+	return checkedCast[R0](r[0])
+}
+
+// nolint:lll
+func Invoke5_2[R0, R1, A0, A1, A2, A3, A4 any](f func(A0, A1, A2, A3, A4) (R0, R1), obj iStruct, a0 A0, a1 A1, a2 A2, a3 A3, a4 A4) (R0, R1) {
+	r := obj.call(f, a0, a1, a2, a3, a4)
+	return checkedCast[R0](r[0]), checkedCast[R1](r[1])
+}
+
+// nolint:lll
+func Invoke5_3[R0, R1, R2, A0, A1, A2, A3, A4 any](f func(A0, A1, A2, A3, A4) (R0, R1, R2), obj iStruct, a0 A0, a1 A1, a2 A2, a3 A3, a4 A4) (R0, R1, R2) {
+	r := obj.call(f, a0, a1, a2, a3, a4)
+	return checkedCast[R0](r[0]), checkedCast[R1](r[1]), checkedCast[R2](r[2])
+}
+
+// nolint:lll
+func Invoke5_4[R0, R1, R2, R3, A0, A1, A2, A3, A4 any](f func(A0, A1, A2, A3, A4) (R0, R1, R2, R3), obj iStruct, a0 A0, a1 A1, a2 A2, a3 A3, a4 A4) (R0, R1, R2, R3) {
+	r := obj.call(f, a0, a1, a2, a3, a4)
+	return checkedCast[R0](r[0]), checkedCast[R1](r[1]), checkedCast[R2](r[2]), checkedCast[R3](r[3])
+}
+
+// nolint:lll
+func Invoke6_0[A0, A1, A2, A3, A4, A5 any](f func(A0, A1, A2, A3, A4, A5), obj iStruct, a0 A0, a1 A1, a2 A2, a3 A3, a4 A4, a5 A5) {
+	obj.call(f, a0, a1, a2, a3, a4, a5)
+	return
+}
+
+// nolint:lll
+func Invoke6_1[R0, A0, A1, A2, A3, A4, A5 any](f func(A0, A1, A2, A3, A4, A5) R0, obj iStruct, a0 A0, a1 A1, a2 A2, a3 A3, a4 A4, a5 A5) R0 {
+	r := obj.call(f, a0, a1, a2, a3, a4, a5)
+	return checkedCast[R0](r[0])
+}
+
+// nolint:lll
+func Invoke6_2[R0, R1, A0, A1, A2, A3, A4, A5 any](f func(A0, A1, A2, A3, A4, A5) (R0, R1), obj iStruct, a0 A0, a1 A1, a2 A2, a3 A3, a4 A4, a5 A5) (R0, R1) {
+	r := obj.call(f, a0, a1, a2, a3, a4, a5)
+	return checkedCast[R0](r[0]), checkedCast[R1](r[1])
+}
+
+// nolint:lll
+func Invoke6_3[R0, R1, R2, A0, A1, A2, A3, A4, A5 any](f func(A0, A1, A2, A3, A4, A5) (R0, R1, R2), obj iStruct, a0 A0, a1 A1, a2 A2, a3 A3, a4 A4, a5 A5) (R0, R1, R2) {
+	r := obj.call(f, a0, a1, a2, a3, a4, a5)
+	return checkedCast[R0](r[0]), checkedCast[R1](r[1]), checkedCast[R2](r[2])
+}
+
+// nolint:lll
+func Invoke6_4[R0, R1, R2, R3, A0, A1, A2, A3, A4, A5 any](f func(A0, A1, A2, A3, A4, A5) (R0, R1, R2, R3), obj iStruct, a0 A0, a1 A1, a2 A2, a3 A3, a4 A4, a5 A5) (R0, R1, R2, R3) {
+	r := obj.call(f, a0, a1, a2, a3, a4, a5)
+	return checkedCast[R0](r[0]), checkedCast[R1](r[1]), checkedCast[R2](r[2]), checkedCast[R3](r[3])
+}
+
+// nolint:lll
+func Invoke7_0[A0, A1, A2, A3, A4, A5, A6 any](f func(A0, A1, A2, A3, A4, A5, A6), obj iStruct, a0 A0, a1 A1, a2 A2, a3 A3, a4 A4, a5 A5, a6 A6) {
+	obj.call(f, a0, a1, a2, a3, a4, a5, a6)
+	return
+}
+
+// nolint:lll
+func Invoke7_1[R0, A0, A1, A2, A3, A4, A5, A6 any](f func(A0, A1, A2, A3, A4, A5, A6) R0, obj iStruct, a0 A0, a1 A1, a2 A2, a3 A3, a4 A4, a5 A5, a6 A6) R0 {
+	r := obj.call(f, a0, a1, a2, a3, a4, a5, a6)
+	return checkedCast[R0](r[0])
+}
+
+// nolint:lll
+func Invoke7_2[R0, R1, A0, A1, A2, A3, A4, A5, A6 any](f func(A0, A1, A2, A3, A4, A5, A6) (R0, R1), obj iStruct, a0 A0, a1 A1, a2 A2, a3 A3, a4 A4, a5 A5, a6 A6) (R0, R1) {
+	r := obj.call(f, a0, a1, a2, a3, a4, a5, a6)
+	return checkedCast[R0](r[0]), checkedCast[R1](r[1])
+}
+
+// nolint:lll
+func Invoke7_3[R0, R1, R2, A0, A1, A2, A3, A4, A5, A6 any](f func(A0, A1, A2, A3, A4, A5, A6) (R0, R1, R2), obj iStruct, a0 A0, a1 A1, a2 A2, a3 A3, a4 A4, a5 A5, a6 A6) (R0, R1, R2) {
+	r := obj.call(f, a0, a1, a2, a3, a4, a5, a6)
+	return checkedCast[R0](r[0]), checkedCast[R1](r[1]), checkedCast[R2](r[2])
+}
+
+// nolint:lll
+func Invoke7_4[R0, R1, R2, R3, A0, A1, A2, A3, A4, A5, A6 any](f func(A0, A1, A2, A3, A4, A5, A6) (R0, R1, R2, R3), obj iStruct, a0 A0, a1 A1, a2 A2, a3 A3, a4 A4, a5 A5, a6 A6) (R0, R1, R2, R3) {
+	r := obj.call(f, a0, a1, a2, a3, a4, a5, a6)
+	return checkedCast[R0](r[0]), checkedCast[R1](r[1]), checkedCast[R2](r[2]), checkedCast[R3](r[3])
 }
 
 // endregion

@@ -7,7 +7,11 @@ import (
 )
 
 type Base struct {
+	// ------------
+	// 1 embed inherit.Struct as value in base class
+	// ------------
 	Struct
+
 	iVal int
 }
 
@@ -34,6 +38,10 @@ func TestSmoke(t *testing.T) {
 		Base: Base{iVal: 1},
 		sVal: "sub",
 	}
+
+	// ------------
+	// 2 call inherit.Init on sub-class
+	// ------------
 	Init(sub)
 
 	// case 1
@@ -125,12 +133,12 @@ func TestCall(t *testing.T) {
 	Init(sub)
 
 	base := To[Base](sub)
-	out := CallArg1Ret1(base, base.VirtualMethod, "1")
+	out := Invoke1_1(base.VirtualMethod, base, "1")
 	if out != "1" {
 		t.Fail()
 	}
 
-	out = CallArg1Ret1(base, base.VirtualMethod, "2")
+	out = Invoke1_1(base.VirtualMethod, base, "2")
 	if out != "2" {
 		t.Fail()
 	}
